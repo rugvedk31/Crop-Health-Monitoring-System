@@ -8,42 +8,107 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
-  Platform
+  Platform,
+  Dimensions
 } from 'react-native'
 
-// Mock Data Arrays matching your UI design
-const LANGUAGES = ['English', 'मराठी (Marathi)', 'हिन्दी (Hindi)']
+const { width } = Dimensions.get('window')
+
+const LANGUAGES = [
+  { id: 'all', label: 'All' },
+  { id: 'en', label: 'English' },
+  { id: 'mr', label: 'मराठी (Marathi)' },
+  { id: 'hi', label: 'हिन्दी (Hindi)' }
+]
+
+const ALL_POSTS = [
+  {
+    id: 'post_1',
+    lang: 'en',
+    userName: 'Ramesh P.',
+    location: 'Pune, Maharashtra • 2 hours ago',
+    avatar: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=100&auto=format&fit=crop&q=80',
+    cropTag: 'Wheat',
+    statusTag: '⚠️ Disease Suspected',
+    statusColor: '#D32F2F',
+    statusBg: '#FFEBE6',
+    bodyText: 'My wheat leaves are turning yellow from the tips, and there are small brown spots appearing. The soil is slightly damp. Has anyone faced this recently?',
+    postImage: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
+    aiInsight: '✨ AI Scanned: High Probability Rust',
+    likes: 24,
+    replies: 8
+  },
+  {
+    id: 'post_2',
+    lang: 'mr',
+    userName: 'ज्ञानेश्वर साळुंखे (Dnyaneshwar S.)',
+    location: 'नाशिक, महाराष्ट्र • ३ तास पूर्वी',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    cropTag: 'द्राक्षे (Grapes)',
+    statusTag: '🍂 बुरशीजन्य प्रादुर्भाव (Mildew)',
+    statusColor: '#E65100',
+    statusBg: '#FFF3E0',
+    bodyText: 'माझ्या द्राक्ष बागेत पानाच्या पाठीमागच्या बाजूला पांढरी बुरशी दिसत आहे. यावर कोणती फवारणी घ्यावी? कृपया अनुभवी शेतकऱ्यांनी मार्गदर्शन करावे.',
+    postImage: 'https://images.unsplash.com/photo-1532467414647-9e38ec47db1a?w=600&auto=format&fit=crop&q=80',
+    aiInsight: '✨ AI तपासणी: डाउनी मिल्ड्यू (Downy Mildew)',
+    likes: 42,
+    replies: 15
+  },
+  {
+    id: 'post_3',
+    lang: 'hi',
+    userName: 'सुरेश कुमार (Suresh K.)',
+    location: 'इंदौर, मध्य प्रदेश • ४ घंटे पहले',
+    avatar: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80',
+    cropTag: 'कपास (Cotton)',
+    statusTag: '🐛 कीट का हमला (Pest Attack)',
+    statusColor: '#B71C1C',
+    statusBg: '#FFEBEE',
+    bodyText: 'कपास की पत्तियों में सुंडी का प्रकोप दिख रहा है। पत्तियां किनारों से मुड़ रही हैं। इसके नियंत्रण के लिए सबसे असरदार दवा कौन सी रहेगी?',
+    postImage: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=600&auto=format&fit=crop&q=80',
+    aiInsight: '✨ AI स्कैन: गुलाबी सुंडी (Pink Bollworm)',
+    likes: 35,
+    replies: 11
+  }
+]
 
 const TRENDING_ISSUES = [
   {
     id: '1',
     title: 'Pink Bollworm in Cotton - Early Stage Control',
-    icon: '🐛',
+    image: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=100&auto=format&fit=crop&q=60',
     discussing: '1.2k discussing'
   },
   {
     id: '2',
     title: 'Monsoon Prep: Soil Drainage Techniques',
-    icon: '💧',
+    image: 'https://images.unsplash.com/photo-1463123081488-729f551ee6f0?w=100&auto=format&fit=crop&q=60',
     discussing: '850 discussing'
   }
 ]
 
 export default function CommunityScreen() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedLang, setSelectedLang] = useState('English')
+  const [selectedLangCode, setSelectedLangCode] = useState('all')
+
+  const filteredPosts = selectedLangCode === 'all' 
+    ? ALL_POSTS 
+    : ALL_POSTS.filter(post => post.lang === selectedLangCode)
 
   return (
     <View style={styles.root}>
       <StatusBar backgroundColor="#EFF6EE" barStyle="dark-content" />
       
-      {/* Search Header Wrapper */}
+      {/* Top Appbar & Search Infrastructure */}
       <View style={styles.searchHeaderContainer}>
         <View style={styles.brandRow}>
           <Text style={styles.brandText}>AgroAssist</Text>
           <View style={styles.weatherBadge}>
-            <Text style={styles.weatherText}>🌤 28°C Pune</Text>
+            <Text style={styles.weatherText}>🌤 35°C Pune</Text>
           </View>
+          <TouchableOpacity style={styles.notifBtn}>
+            <Text style={styles.notifIcon}>🔔</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.searchBarWrapper}>
           <Text style={styles.searchIcon}>🔍</Text>
@@ -57,7 +122,7 @@ export default function CommunityScreen() {
         </View>
       </View>
 
-      {/* Main Page Content */}
+      {/* Main Container Layout */}
       <ScrollView 
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -65,7 +130,7 @@ export default function CommunityScreen() {
       >
         <Text style={styles.sectionTitle}>Farmer Community 🌱</Text>
 
-        {/* 1. Connect Card Banner */}
+        {/* 1. Main Connect Banner Component */}
         <View style={styles.bannerCard}>
           <View style={styles.bannerLeft}>
             <Text style={styles.bannerHeading}>Connect with Farmers Across India</Text>
@@ -77,98 +142,97 @@ export default function CommunityScreen() {
             </TouchableOpacity>
           </View>
           <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?q=80&w=300&auto=format&fit=crop' }} 
+            source={{ uri: 'https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?w=400&auto=format&fit=crop&q=80' }} 
             style={styles.bannerImage}
           />
         </View>
 
-        {/* 2. Language Filter Tags Row */}
+        {/* 2. Languages Selection Carousel Row */}
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false} 
           contentContainerStyle={styles.langScrollGap}
           style={styles.langContainer}
         >
-          {LANGUAGES.map((lang, index) => {
-            const isSelected = selectedLang === lang
+          {LANGUAGES.map((lang) => {
+            const isSelected = selectedLangCode === lang.id
             return (
               <TouchableOpacity
-                key={index}
-                onPress={() => setSelectedLang(lang)}
+                key={lang.id}
+                onPress={() => setSelectedLangCode(lang.id)}
                 style={[styles.langTag, isSelected && styles.langTagActive]}
               >
-                <Text style={[styles.langTagText, isSelected && styles.langTagTextActive]}>
-                  {lang}
+                <Text style={[styles.langTagText, isSelected && styles.langTagActiveText]}>
+                  {lang.label}
                 </Text>
               </TouchableOpacity>
             )
           })}
         </ScrollView>
 
-        {/* 3. Community Post Component */}
-        <View style={styles.postCard}>
-          {/* User Meta Details */}
-          <View style={styles.postHeaderRow}>
-            <View style={styles.userInfoCol}>
-              <View style={styles.userAvatarCircle}>
-                <Text style={styles.avatarEmoji}>👨🏽‍🌾</Text>
+        {/* 3. Community Post Feeds Section */}
+        {filteredPosts.length > 0 ? (
+          filteredPosts.map((post) => (
+            <View key={post.id} style={styles.postCard}>
+              {/* User Header Details */}
+              <View style={styles.postHeaderRow}>
+                <View style={styles.userInfoCol}>
+                  <Image source={{ uri: post.avatar }} style={styles.userAvatarImage} />
+                  <View>
+                    <Text style={styles.userName}>{post.userName}</Text>
+                    <Text style={styles.userMetaLocation}>{post.location}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity><Text style={styles.moreOptionsIcon}>⋮</Text></TouchableOpacity>
               </View>
-              <View>
-                <Text style={styles.userName}>Ramesh P.</Text>
-                <Text style={styles.userMetaLocation}>Pune, Maharashtra • 2 hours ago</Text>
+
+              {/* Status Context Indicator Badges */}
+              <View style={styles.badgeRow}>
+                <View style={[styles.statusBadge, { backgroundColor: '#E8F5E9' }]}>
+                  <Text style={[styles.statusBadgeText, { color: '#2E6B2E' }]}>{post.cropTag}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: post.statusBg }]}>
+                  <Text style={[styles.statusBadgeText, { color: post.statusColor }]}>{post.statusTag}</Text>
+                </View>
+              </View>
+
+              {/* Body Content Description */}
+              <Text style={styles.postBodyText}>{post.bodyText}</Text>
+
+              {/* Diagnosis Showcase Layout Image */}
+              <View style={styles.postImageContainer}>
+                <Image source={{ uri: post.postImage }} style={styles.postAttachedImage} />
+                <View style={styles.aiOverlayBadge}>
+                  <Text style={styles.aiOverlayText}>{post.aiInsight}</Text>
+                </View>
+              </View>
+
+              {/* Interactive Metric Feed Actions Footer */}
+              <View style={styles.postActionsFooter}>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Text style={styles.actionBtnIcon}>👍 {post.likes}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Text style={styles.actionBtnIcon}>💬 {post.replies} Replies</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.expertBtn}>
+                  <Text style={styles.expertBtnText}>👨‍⚕️ Ask Experts</Text>
+                </TouchableOpacity>
               </View>
             </View>
-            <TouchableOpacity><Text style={styles.moreOptionsIcon}>⋮</Text></TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyFeedBox}>
+            <Text style={styles.emptyFeedText}>No discussions available at the moment.</Text>
           </View>
+        )}
 
-          {/* Issue Tags */}
-          <View style={styles.badgeRow}>
-            <View style={[styles.statusBadge, { backgroundColor: '#E8F5E9' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#2E6B2E' }]}>Wheat</Text>
-            </View>
-            <View style={[styles.statusBadge, { backgroundColor: '#FFF3E0' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#E65100' }]}>⚠️ Disease Suspected</Text>
-            </View>
-          </View>
-
-          {/* Message text */}
-          <Text style={styles.postBodyText}>
-            My wheat leaves are turning yellow from the tips, and there are small brown spots appearing. The soil is slightly damp. Has anyone faced this recently?
-          </Text>
-
-          {/* Attached Crop Image Layout */}
-          <View style={styles.postImageContainer}>
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?q=80&w=500&auto=format&fit=crop' }}
-              style={styles.postAttachedImage}
-            />
-            <View style={styles.aiOverlayBadge}>
-              <Text style={styles.aiOverlayText}>🔬 AI Scanned: High Probability Rust</Text>
-            </View>
-          </View>
-
-          {/* Interactive Actions Grid */}
-          <View style={styles.postActionsFooter}>
-            <TouchableOpacity style={styles.actionBtn}>
-              <Text style={styles.actionBtnIcon}>👍 24</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn}>
-              <Text style={styles.actionBtnIcon}>💬 8 Replies</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.expertBtn}>
-              <Text style={styles.expertBtnText}>👨‍⚕️ Ask Experts</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 4. Trending Issues List Grid */}
+        {/* 4. Trending Issues List Group Block */}
         <View style={styles.trendingContainer}>
           <Text style={styles.trendingHeaderTitle}>📈 Trending Issues</Text>
           {TRENDING_ISSUES.map((issue) => (
             <View key={issue.id} style={styles.trendingListItem}>
-              <View style={styles.trendingItemIconBg}>
-                <Text style={styles.trendingItemIcon}>{issue.icon}</Text>
-              </View>
+              <Image source={{ uri: issue.image }} style={styles.trendingItemThumbnail} />
               <View style={styles.trendingTextContainer}>
                 <Text numberOfLines={1} style={styles.trendingItemTitle}>{issue.title}</Text>
                 <Text style={styles.trendingItemSubtext}>{issue.discussing}</Text>
@@ -176,23 +240,9 @@ export default function CommunityScreen() {
             </View>
           ))}
         </View>
-
-        {/* 5. Live Audio Discussion Card */}
-        <View style={styles.voiceRoomsCard}>
-          <View style={styles.voiceIconContainer}>
-            <Text style={styles.voiceIconEmoji}>🎙️</Text>
-          </View>
-          <Text style={styles.voiceTitleText}>Voice Rooms Live</Text>
-          <Text style={styles.voiceSubtitleText}>
-            Join active voice discussions in your regional language. Currently 3 rooms active.
-          </Text>
-          <TouchableOpacity style={styles.voiceOutlineBtn} activeOpacity={0.8}>
-            <Text style={styles.voiceOutlineBtnText}>Explore Rooms</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
 
-      {/* 6. Centered Absolute Floating Action Button */}
+      {/* 5. Base Absolute Position Floating Add Trigger Component */}
       <TouchableOpacity style={styles.floatingAddBtn} activeOpacity={0.9}>
         <Text style={styles.floatingAddBtnText}>+ Ask Community</Text>
       </TouchableOpacity>
@@ -210,7 +260,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 110 // Safeguards components from overlapping behind the floating CTA block
+    paddingBottom: 110
   },
   sectionTitle: {
     fontSize: 18,
@@ -219,36 +269,46 @@ const styles = StyleSheet.create({
     marginVertical: 14
   },
 
-  // Search Top Header Wrapper Layout
+  // Header Structural Layout properties
   searchHeaderContainer: {
     backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 12,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#E8F5E9'
   },
   brandRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 12
   },
   brandText: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#2E6B2E'
+    color: '#2E6B2E',
+    flex: 1
   },
   weatherBadge: {
     backgroundColor: '#EFF6EE',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 8
   },
   weatherText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1A3A1A'
+  },
+  notifBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  notifIcon: {
+    fontSize: 18
   },
   searchBarWrapper: {
     flexDirection: 'row',
@@ -260,7 +320,8 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     marginRight: 8,
-    fontSize: 14
+    fontSize: 14,
+    color: '#7A8B75'
   },
   searchInput: {
     flex: 1,
@@ -269,57 +330,57 @@ const styles = StyleSheet.create({
     paddingVertical: 0
   },
 
-  // Informative Promo Panel Display
+  // Display Promo Banner Settings Block
   bannerCard: {
     backgroundColor: '#1A3A1A',
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     overflow: 'hidden',
-    minHeight: 150
+    minHeight: 160
   },
   bannerLeft: {
-    flex: 1,
+    flex: 1.2,
     justifyContent: 'center',
     zIndex: 2
   },
   bannerHeading: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#fff',
-    lineHeight: 22,
+    lineHeight: 24,
     marginBottom: 6
   },
   bannerSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.75)',
-    lineHeight: 16,
-    marginBottom: 14
+    lineHeight: 18,
+    marginBottom: 16
   },
   bannerBtn: {
     backgroundColor: '#2E6B2E',
     alignSelf: 'flex-start',
     paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20
+    paddingHorizontal: 18,
+    borderRadius: 24
   },
   bannerBtnText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600'
+    fontWeight: '700'
   },
   bannerImage: {
-    width: 110,
-    height: '110%',
-    borderRadius: 12,
-    opacity: 0.8,
+    width: 140,
+    height: '120%',
+    opacity: 0.85,
     position: 'absolute',
-    right: 0,
-    bottom: -10
+    right: -10,
+    bottom: -15,
+    resizeMode: 'contain'
   },
 
-  // Lang Picker Row Layout
+  // Language Horizontal Pills Slider Layout
   langContainer: {
     marginVertical: 14
   },
@@ -328,7 +389,7 @@ const styles = StyleSheet.create({
   },
   langTag: {
     backgroundColor: '#fff',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
@@ -341,23 +402,23 @@ const styles = StyleSheet.create({
   langTagText: {
     fontSize: 12,
     color: '#4A6741',
-    fontWeight: '500'
-  },
-  langTagTextActive: {
-    color: '#fff',
     fontWeight: '600'
   },
+  langTagActiveText: {
+    color: '#fff',
+    fontWeight: '700'
+  },
 
-  // Interactive Message Thread Blocks
+  // Post Discussion Cards Panel
   postCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 }
   },
   postHeaderRow: {
@@ -368,18 +429,13 @@ const styles = StyleSheet.create({
   userInfoCol: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10
+    gap: 12
   },
-  userAvatarCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFE082',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  avatarEmoji: {
-    fontSize: 18
+  userAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5'
   },
   userName: {
     fontSize: 14,
@@ -388,12 +444,12 @@ const styles = StyleSheet.create({
   },
   userMetaLocation: {
     fontSize: 11,
-    color: 'gray',
-    marginTop: 1
+    color: '#7A8B75',
+    marginTop: 2
   },
   moreOptionsIcon: {
     fontSize: 18,
-    color: 'gray',
+    color: '#7A8B75',
     paddingHorizontal: 4
   },
   badgeRow: {
@@ -403,42 +459,42 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6
+    paddingHorizontal: 12,
+    borderRadius: 8
   },
   statusBadgeText: {
     fontSize: 11,
-    fontWeight: '600'
+    fontWeight: '700'
   },
   postBodyText: {
     fontSize: 13,
-    color: '#333',
-    lineHeight: 19,
+    color: '#2C3E2B',
+    lineHeight: 20,
     marginBottom: 12
   },
   postImageContainer: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 12
   },
   postAttachedImage: {
     width: '100%',
-    height: 180,
-    backgroundColor: '#F5F5F5'
+    height: 190,
+    resizeMode: 'cover'
   },
   aiOverlayBadge: {
     position: 'absolute',
-    bottom: 10,
-    left: 10,
-    backgroundColor: 'rgba(26, 58, 26, 0.85)',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 6
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(14, 77, 32, 0.9)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8
   },
   aiOverlayText: {
     color: '#fff',
     fontSize: 11,
-    fontWeight: '600'
+    fontWeight: '700'
   },
   postActionsFooter: {
     flexDirection: 'row',
@@ -450,132 +506,92 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     paddingVertical: 4,
-    paddingHorizontal: 6
+    paddingHorizontal: 4
   },
   actionBtnIcon: {
-    fontSize: 12,
-    color: '#555',
-    fontWeight: '500'
+    fontSize: 13,
+    color: '#4A6741',
+    fontWeight: '600'
   },
   expertBtn: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4
+    alignItems: 'center'
   },
   expertBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#2E6B2E',
-    fontWeight: '700'
+    fontWeight: '800'
   },
 
-  // Highlights Trending Columns
+  // Fallback Empty State
+  emptyFeedBox: {
+    padding: 30,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    marginBottom: 16
+  },
+  emptyFeedText: {
+    color: '#7A8B75',
+    fontSize: 13,
+    textAlign: 'center'
+  },
+
+  // Highlights Trending System List Row
   trendingContainer: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 16
   },
   trendingHeaderTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#1A3A1A',
-    marginBottom: 12
+    marginBottom: 6
   },
   trendingListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F5'
   },
-  trendingItemIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#EFF6EE',
-    justifyContent: 'center',
-    alignItems: 'center',
+  trendingItemThumbnail: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
     marginRight: 12
-  },
-  trendingItemIcon: {
-    fontSize: 16
   },
   trendingTextContainer: {
     flex: 1
   },
   trendingItemTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1A3A1A'
   },
   trendingItemSubtext: {
     fontSize: 11,
-    color: 'gray',
-    marginTop: 2
+    color: '#7A8B75',
+    marginTop: 3
   },
 
-  // Streaming Channels Panel Block Layout
-  voiceRoomsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E8F5E9'
-  },
-  voiceIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E8F5E9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10
-  },
-  voiceIconEmoji: {
-    fontSize: 22
-  },
-  voiceTitleText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A3A1A',
-    marginBottom: 6
-  },
-  voiceSubtitleText: {
-    fontSize: 12,
-    color: '#4A6741',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 14,
-    paddingHorizontal: 10
-  },
-  voiceOutlineBtn: {
-    borderWidth: 1,
-    borderColor: '#2E6B2E',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20
-  },
-  voiceOutlineBtnText: {
-    color: '#2E6B2E',
-    fontSize: 12,
-    fontWeight: '700'
-  },
-
-  // Bottom Center Trigger Button Properties
+  // Absolut Bottom Center Sticky CTA Properties
   floatingAddBtn: {
     position: 'absolute',
     bottom: 16,
     alignSelf: 'center',
     backgroundColor: '#1A3A1A',
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
+    paddingHorizontal: 28,
+    borderRadius: 28,
     elevation: 4,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 }
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 }
   },
   floatingAddBtnText: {
     color: '#fff',

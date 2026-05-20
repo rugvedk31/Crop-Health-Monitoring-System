@@ -51,6 +51,9 @@ export default function ProfileScreen({ navigation }) {
   const [editSoilType, setEditSoilType] = useState('')
   const [editIrrigation, setEditIrrigation] = useState('')
 
+  const d = profile || farmer
+  const avatarLetter = (d?.name || 'F')[0].toUpperCase()
+
   const fetchProfile = async () => {
     try {
       const data = await getMe()
@@ -88,7 +91,6 @@ export default function ProfileScreen({ navigation }) {
     try {
       const headers = await authHeaders()
       const res = await fetch(`${API.ME}`, {
-        // method: 'PATCH',
         method: 'PUT',
         headers,
         body: JSON.stringify({ name: editName.trim(), language: editLanguage }),
@@ -114,7 +116,7 @@ export default function ProfileScreen({ navigation }) {
     try {
       const headers = await authHeaders()
       const res = await fetch(`${API.UPDATE_FARM}`, {
-        method: 'PATCH',
+        method: 'PUT', // Fixed to PUT method matching API route configurations
         headers,
         body: JSON.stringify({
           crop_type: editCropType,
@@ -124,9 +126,22 @@ export default function ProfileScreen({ navigation }) {
         }),
       })
       const data = await res.json()
-      if (data?.id) {
-        setProfile(data)
-        updateFarmer(data)
+      
+      if (data && (data.id || data.crop_type)) {
+        // Construct complete target context model object layout smoothly without truncating profile attributes
+        const updatedProfile = {
+          ...d,
+          farm: {
+            ...d?.farm,
+            crop_type: editCropType,
+            area_acres: editAreaAcres ? parseFloat(editAreaAcres) : null,
+            soil_type: editSoilType,
+            irrigation_type: editIrrigation,
+          }
+        }
+        
+        setProfile(updatedProfile)
+        updateFarmer(updatedProfile)
         setFarmModal(false)
         Alert.alert('Success', 'Farm details updated!')
       } else {
@@ -162,9 +177,6 @@ export default function ProfileScreen({ navigation }) {
       },
     ])
   }
-
-  const d = profile || farmer
-  const avatarLetter = (d?.name || 'F')[0].toUpperCase()
 
   const getLanguageLabel = (lang) => {
     if (lang === 'marathi') return '🇮🇳 मराठी'
@@ -230,12 +242,11 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Stats Row */}
+        {/* Stats Row (Removed Duplicate Total Scans Column Block Element) */}
         <View style={styles.statsRow}>
           {[
             { value: d?.total_scans || '0', label: 'Total\nScans' },
             { value: d?.diseases_detected || '0', label: 'Diseases\nDetected' },
-            { value: d?.total_scans || '0', label: 'Total\nScans' },
             { value: '93%', label: 'AI\nAccuracy', color: '#76C442' },
           ].map((stat, i) => (
             <React.Fragment key={i}>
@@ -243,7 +254,7 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={[styles.statValue, stat.color && { color: stat.color }]}>{stat.value}</Text>
                 <Text style={styles.statLabel}>{stat.label}</Text>
               </View>
-              {i < 3 && <View style={styles.statDivider} />}
+              {i < 2 && <View style={styles.statDivider} />}
             </React.Fragment>
           ))}
         </View>
@@ -379,7 +390,7 @@ export default function ProfileScreen({ navigation }) {
               {LANGUAGES.map(lang => (
                 <TouchableOpacity
                   key={lang.value}
-                  onPress={() => setEditLanguage(lang.value)}
+                  onPress={() => editLanguage !== lang.value && setEditLanguage(lang.value)}
                   style={[styles.langOptionBtn, editLanguage === lang.value && styles.langOptionBtnActive]}
                 >
                   <Text style={[styles.langOptionText, editLanguage === lang.value && styles.langOptionTextActive]}>

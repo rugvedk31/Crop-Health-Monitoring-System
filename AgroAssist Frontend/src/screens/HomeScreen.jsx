@@ -1,19 +1,27 @@
 import React, { useState, useEffect } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, StatusBar, Platform, Image, ActivityIndicator,
-  Linking
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  StatusBar,
+  Platform,
+  Image,
+  ActivityIndicator,
+  Linking,
+  Modal,
+  SafeAreaView,
+  Dimensions
 } from 'react-native'
 import { useAuth } from '../context/AuthContext'
+
+const { height } = Dimensions.get('window')
 
 const QUICK_ACTIONS = [
   { icon: '🌿', title: 'Scan Crop', subtitle: 'Detect disease', screen: 'Predict', bg: '#F0FAF0', iconBg: '#C8E6C9' },
   { icon: '📋', title: 'My Reports', subtitle: 'Past results', screen: 'Profile', bg: '#FFF0F5', iconBg: '#F8BBD0' },
-]
-
-const INSIGHTS = [
-  { icon: '🌱', title: 'Soil Health', color: '#4CAF50', text: 'Based on recent rain, delay applying nitrogen fertilizers for 2 days to prevent runoff.' },
-  { icon: '⚠️', title: 'Early Warning', color: '#FF9800', text: 'Red rot risk is high in nearby fields. Inspect your crop in lower sections.' },
 ]
 
 export default function HomeScreen({ navigation }) {
@@ -22,7 +30,9 @@ export default function HomeScreen({ navigation }) {
   const [news, setNews] = useState([])
   const [loadingNews, setLoadingNews] = useState(true)
 
-  // --- Real-time Weather States ---
+  // --- Dynamic Dashboard States ---
+  const [insights, setInsights] = useState([])
+  const [loadingInsights, setLoadingInsights] = useState(true)
   const [weatherData, setWeatherData] = useState({
     temp: '28°C',
     humidity: '65%',
@@ -32,68 +42,205 @@ export default function HomeScreen({ navigation }) {
   })
   const [loadingWeather, setLoadingWeather] = useState(true)
 
-  // 1. Fetch Real-time Weather & Reverse Geocode Location Name
+  // --- Real-time Notification System States ---
+  const [notifications, setNotifications] = useState([])
+  const [isNotifVisible, setIsNotifVisible] = useState(false)
+  const [hasUnreadNotif, setHasUnreadNotif] = useState(true)
+
+  // --- Dynamic First Name Parser ---
+  const getFarmerFirstName = () => {
+    if (!farmer?.name) return 'Farmer'
+    const trimmedName = farmer.name.trim()
+    return trimmedName.split(' ')[0]
+  }
+
+  // 1. Core Engine: Dynamically maps alerts based on actual location climate metrics
+  const generateLiveAlertsAndInsights = (temp, humidity, rainChance, locationName) => {
+    setLoadingInsights(true)
+    try {
+      let generatedInsights = []
+      let generatedNotifications = []
+
+      // --- CRITERIA A: SOIL HEALTH, RAIN & FERTILIZER MANAGEMENT ---
+      if (rainChance >= 50) {
+        const rainText = `High (${rainChance}%) rain forecast in ${locationName}. Delay applying granular nitrogen fertilizers for 48 hours to avoid field runoff.`
+        generatedInsights.push({
+          icon: '🌱',
+          title: 'Soil Nutrient Alert',
+          color: '#4CAF50',
+          text: rainText
+        })
+        generatedNotifications.push({
+          id: 'notif_1',
+          icon: '🌧️',
+          title: 'Fertilizer Runoff Warning',
+          time: 'Just Now',
+          description: rainText,
+          tag: 'Soil Health',
+          tagColor: '#E8F5E9',
+          textColor: '#2E6B2E'
+        })
+      } else if (temp > 32) {
+        const heatText = `High heat conditions (${temp}°C) spotted. Shift micro-irrigation scheduling to early morning hours to minimize evaporation loss.`
+        generatedInsights.push({
+          icon: '💧',
+          title: 'Moisture Preservation',
+          color: '#0288D1',
+          text: heatText
+        })
+        generatedNotifications.push({
+          id: 'notif_1',
+          icon: '☀️',
+          title: 'Irrigation Adjustments Required',
+          time: 'Just Now',
+          description: heatText,
+          tag: 'Water Management',
+          tagColor: '#E1F5FE',
+          textColor: '#0288D1'
+        })
+      } else {
+        generatedInsights.push({
+          icon: '🌱',
+          title: 'Optimal Soil Window',
+          color: '#4CAF50',
+          text: `Mild ambient conditions in ${locationName} are excellent for applying standard organic bio-fertilizers or executing routine weeding.`
+        })
+      }
+
+      // --- CRITERIA B: REAL-TIME DISEASE/PEST RISK MATRIX ---
+      if (humidity > 75 && temp >= 22 && temp <= 32) {
+        const fungusText = `High humidity (${humidity}%) and warm weather create prime conditions for powdery mildew spore propagation. Inspect leaves closely.`
+        generatedInsights.push({
+          icon: '⚠️',
+          title: 'Fungal Infection Risk',
+          color: '#E65100',
+          text: fungusText
+        })
+        generatedNotifications.push({
+          id: 'notif_2',
+          icon: '⚠️',
+          title: 'Fungal Spore Risk: High',
+          time: '5m ago',
+          description: fungusText,
+          tag: 'Crop Protection',
+          tagColor: '#FFF3E0',
+          textColor: '#E65100'
+        })
+      } else if (rainChance > 40 && humidity > 70) {
+        const pestText = `Prolonged moisture patterns in ${locationName} increase risk thresholds for aphid activity. Keep sticky traps configured in lower quadrants.`
+        generatedInsights.push({
+          icon: '🐛',
+          title: 'Pest Outbreak Alert',
+          color: '#FF9800',
+          text: pestText
+        })
+        generatedNotifications.push({
+          id: 'notif_2',
+          icon: '🐛',
+          title: 'Pest Outbreak Warning',
+          time: '10m ago',
+          description: pestText,
+          tag: 'Pest Control',
+          tagColor: '#FFFDE7',
+          textColor: '#F57F17'
+        })
+      } else {
+        generatedInsights.push({
+          icon: '🛡️',
+          title: 'Crop Protection Steady',
+          color: '#2E6B2E',
+          text: `Atmospheric microclimates look balanced. Continue routine bio-pesticide perimeter sweeps to secure seasonal crop yields.`
+        })
+      }
+
+      // Add a baseline notification if no extreme weather conditions hit
+      if (generatedNotifications.length === 0) {
+        generatedNotifications.push({
+          id: 'notif_stable',
+          icon: '✅',
+          title: 'Farm Diagnostics Stable',
+          time: '1h ago',
+          description: `Microclimate grids in ${locationName} are safe. Ideal conditions maintained for standard crop maintenance windows.`,
+          tag: 'Routine Sync',
+          tagColor: '#EFF6EE',
+          textColor: '#2E6B2E'
+        })
+      }
+
+      setInsights(generatedInsights)
+      setNotifications(generatedNotifications)
+    } catch (err) {
+      console.log("Failed to process dynamic real-time insights cascade:", err)
+    } finally {
+      setLoadingInsights(false)
+    }
+  }
+
+  // 2. Fetch Real-time Weather & Coordinate Conversion
   const fetchRealTimeWeather = async (lat, lon) => {
     try {
       setLoadingWeather(true)
-      
-      // A. Reverse Geocode Coordinates to get the actual Town/City/Village Name (100% Free, No Key)
       let locationName = "My Farm"
+      
       try {
         const geoUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
         const geoResponse = await fetch(geoUrl)
         const geoData = await geoResponse.json()
-        
-        // Grab village, suburb, town, or city depending on what is available in the rural/urban area
-        locationName = geoData.locality || geoData.city || geoData.principalSubdivision || "My Farm"
+        locationName = geoData.locality || geoData.city || geoData.principalSubdivision || "Pune"
       } catch (geoErr) {
-        console.log("Failed to reverse geocode location name, falling back to default string:", geoErr)
+        console.log("Failed to reverse geocode location name:", geoErr)
       }
 
-      // B. Fetch Meteorological Climate Forecast Data
-      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation&hourly=precipitation_probability&forecast_days=1`
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code&hourly=precipitation_probability&forecast_days=1`
       const response = await fetch(weatherUrl)
       const data = await response.json()
 
       if (data.current) {
         const currentTemp = Math.round(data.current.temperature_2m)
         const currentHumidity = data.current.relative_humidity_2m
-        const currentRainChance = data.hourly?.precipitation_probability?.[0] || Math.round(data.current.precipitation * 100)
-        
+        const currentRainChance = data.hourly?.precipitation_probability?.[0] || 0
+        const wmoCode = data.current.weather_code
+
         let conditionDesc = 'Clear Sky'
         let conditionIcon = '☀️'
         
-        if (data.current.precipitation > 0) {
+        if (currentTemp >= 32 && currentRainChance < 30) {
+          conditionDesc = 'Hot & Sunny'
+          conditionIcon = '☀️'
+        } else if (currentRainChance >= 50 || wmoCode >= 51) {
           conditionDesc = 'Raining'
           conditionIcon = '🌧'
-        } else if (currentTemp < 20) {
-          conditionDesc = 'Cool Breezes'
-          conditionIcon = '🍃'
-        } else if (currentHumidity > 70) {
-          conditionDesc = 'Humid / Overcast'
+        } else if (currentRainChance >= 30) {
+          conditionDesc = 'Overcast / Light Drizzle'
           conditionIcon = '☁️'
-        } else {
+        } else if (wmoCode === 1 || wmoCode === 2 || wmoCode === 3) {
           conditionDesc = 'Partly Cloudy'
           conditionIcon = '🌤'
+        } else if (currentTemp < 20) {
+          conditionDesc = 'Cool Breeze'
+          conditionIcon = '🍃'
         }
 
         setWeatherData({
           temp: `${currentTemp}°C`,
           humidity: `${currentHumidity}%`,
           rainChance: `${currentRainChance}%`,
-          desc: `${conditionDesc} • ${locationName}`, // Injected the real-time location name here dynamically
+          desc: `${conditionDesc} • ${locationName}`,
           icon: conditionIcon
         })
+
+        generateLiveAlertsAndInsights(currentTemp, currentHumidity, currentRainChance, locationName)
       }
     } catch (error) {
       console.error("Error fetching live weather data: ", error)
       setWeatherData(prev => ({ ...prev, desc: "Weather update failed" }))
+      setLoadingInsights(false)
     } finally {
       setLoadingWeather(false)
     }
   }
 
-  // 2. Request Mobile Core Location coordinates
+  // 3. Request Location Coordinates
   const getUserLocationAndLoadDashboard = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -102,8 +249,7 @@ export default function HomeScreen({ navigation }) {
           fetchRealTimeWeather(latitude, longitude)
         },
         (error) => {
-          console.log("Location permission rejected or timed out, loading defaults: ", error.message)
-          // Default fallbacks to Pune coordinates if location access is denied
+          console.log("Location permission rejected, using fallbacks:", error.message)
           fetchRealTimeWeather(18.5204, 73.8567) 
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
@@ -113,7 +259,7 @@ export default function HomeScreen({ navigation }) {
     }
   }
 
-  // 3. 100% Free RSS-to-JSON News Fetcher
+  // 4. RSS News Stream Fetcher
   const fetchFarmingNews = async () => {
     try {
       setLoadingNews(true)
@@ -158,6 +304,11 @@ export default function HomeScreen({ navigation }) {
     setTimeout(() => setRefreshing(false), 1000)
   }
 
+  const handleOpenNotifications = () => {
+    setIsNotifVisible(true)
+    setHasUnreadNotif(false) // Dismiss unread badge upon tapping the appbar control
+  }
+
   return (
     <View style={styles.root}>
       <StatusBar backgroundColor="#EFF6EE" barStyle="dark-content" />
@@ -172,27 +323,29 @@ export default function HomeScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2E6B2E']} />
         }
       >
-        {/* Header */}
+        {/* HEADER BAR (With working dynamic alert notification counter dots) */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.avatarCircle}>
               <Text style={styles.avatarEmoji}>👨‍🌾</Text>
             </View>
-            <View>
+            <View style={styles.textContainerColumn}>
               <Text style={styles.welcomeText}>Welcome back,</Text>
               <View style={styles.nameRow}>
-                <Text style={styles.nameText}>
-                  Namaste, {farmer?.name || 'Farmer'} 👋
+                <Text numberOfLines={1} style={styles.nameText}>
+                  Namaste, {getFarmerFirstName()} 👋
                 </Text>
               </View>
             </View>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.notifBtn}>
+          
+          <TouchableOpacity onPress={handleOpenNotifications} style={styles.notifBtn} activeOpacity={0.7}>
             <Text style={styles.notifIcon}>🔔</Text>
+            {hasUnreadNotif && <View style={styles.unreadBadgeIndicatorPin} />}
           </TouchableOpacity>
         </View>
 
-        {/* Weather Card */}
+        {/* Dynamic Weather Climate Box */}
         <View style={styles.weatherCard}>
           {loadingWeather ? (
             <View style={{ flex: 1, height: 120, justifyContent: 'center', alignItems: 'center' }}>
@@ -246,31 +399,38 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
 
-        {/* Daily Insights */}
+        {/* Real-time Generated AI Insights Shelf */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Daily Insights</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAllText}>SEE ALL</Text>
+          <TouchableOpacity onPress={onRefresh}>
+            <Text style={styles.seeAllText}>REFRESH</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalScrollGap}
-        >
-          {INSIGHTS.map((insight, i) => (
-            <View key={i} style={styles.insightCard}>
-              <View style={[styles.insightIconCircle, { backgroundColor: insight.color + '22' }]}>
-                <Text style={styles.insightIconEmoji}>{insight.icon}</Text>
+        {loadingInsights ? (
+          <View style={styles.loadingInsightsWrapper}>
+            <ActivityIndicator size="small" color="#2E6B2E" />
+            <Text style={styles.loadingInsightsText}>Analyzing eco-factors...</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalScrollGap}
+          >
+            {insights.map((insight, i) => (
+              <View key={i} style={styles.insightCard}>
+                <View style={[styles.insightIconCircle, { backgroundColor: insight.color + '15' }]}>
+                  <Text style={styles.insightIconEmoji}>{insight.icon}</Text>
+                </View>
+                <Text style={[styles.insightTitle, { color: insight.color }]}>{insight.title}</Text>
+                <Text style={styles.insightText}>{insight.text}</Text>
               </View>
-              <Text style={[styles.insightTitle, { color: insight.color }]}>{insight.title}</Text>
-              <Text style={styles.insightText}>{insight.text}</Text>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        )}
 
-        {/* Real-time Farming News */}
+        {/* Real-time Farming RSS News */}
         <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
           <Text style={styles.sectionTitle}>Farming News</Text>
           <Text style={styles.liveBadge}>● LIVE</Text>
@@ -306,7 +466,56 @@ export default function HomeScreen({ navigation }) {
 
       </ScrollView>
 
-      {/* Floating Meta AI-Style Chatbot Button */}
+      {/* =======================================================
+          DYNAMIC SLIDE-UP REAL-TIME NOTIFICATIONS PANEL (MODAL)
+         ======================================================= */}
+      <Modal visible={isNotifVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <SafeAreaView style={styles.notifModalContainerCard}>
+            
+            {/* Modal Drag/Dismiss Handle */}
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.notifTitleHeaderFlex}>
+                <Text style={styles.modalHeaderTitle}>Farm Advisory Alerts</Text>
+                <View style={styles.notifLiveBadgeCount}>
+                  <Text style={styles.notifLiveBadgeText}>{notifications.length} Live</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.closeModalBtn} onPress={() => setIsNotifVisible(false)}>
+                <Text style={styles.closeModalText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Alert Stream */}
+            <ScrollView style={styles.notifItemsScrollView} showsVerticalScrollIndicator={false}>
+              {notifications.map((notif) => (
+                <View key={notif.id} style={styles.notifAlertItemRow}>
+                  <View style={styles.notifAlertIconWrapper}>
+                    <Text style={styles.notifAlertIconEmoji}>{notif.icon}</Text>
+                  </View>
+                  <View style={styles.notifAlertMetadataColumn}>
+                    <View style={notifStyles.metaRow}>
+                      <Text style={styles.notifAlertTitleText}>{notif.title}</Text>
+                      <Text style={styles.notifAlertTimeSpan}>{notif.time}</Text>
+                    </View>
+                    <Text style={styles.notifAlertDescPayload}>{notif.description}</Text>
+                    
+                    {/* Actionable Scope Categories Pills */}
+                    <View style={[styles.notifParamPillTag, { backgroundColor: notif.tagColor }]}>
+                      <Text style={[styles.notifParamPillText, { color: notif.textColor }]}>
+                        ⚡ {notif.tag}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* Floating Chatbot Button */}
       <TouchableOpacity
         style={styles.floatingChatButton}
         onPress={() => navigation.navigate('Chat')}
@@ -318,6 +527,11 @@ export default function HomeScreen({ navigation }) {
   )
 }
 
+// Extra sub-row configurations mapping setup helpers
+const notifStyles = {
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -326,20 +540,27 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: {
     paddingHorizontal: 18,
-    paddingBottom: 100, 
+    paddingBottom: 110,
   },
 
-  // Header
+  // Custom Balanced App Bar Elements
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 18,
+    alignSelf: 'stretch',
+    paddingRight: 4,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    paddingRight: 16,
+  },
+  textContainerColumn: {
+    flex: 1,
   },
   avatarCircle: {
     width: 42,
@@ -358,12 +579,13 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    width: '100%',
   },
   nameText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#1A3A1A',
+    flex: 1,
   },
   notifBtn: {
     width: 40,
@@ -374,8 +596,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#D0E8CC',
+    position: 'relative'
   },
   notifIcon: { fontSize: 18 },
+  unreadBadgeIndicatorPin: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#E53935',
+    borderWidth: 1.5,
+    borderColor: '#fff'
+  },
 
   // Weather Card Container
   weatherCard: {
@@ -488,7 +722,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   seeAllText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#2E6B2E',
     letterSpacing: 0.5,
@@ -498,9 +732,26 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
 
+  // Insights Loading States
+  loadingInsightsWrapper: {
+    height: 120,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E8F5E9',
+  },
+  loadingInsightsText: {
+    fontSize: 12,
+    color: '#7A8B75',
+    fontWeight: '500',
+  },
+
   // Insights Card Styles
   insightCard: {
-    width: 200,
+    width: 210,
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
@@ -525,9 +776,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   insightText: {
-    fontSize: 12,
-    color: '#4A6741',
-    lineHeight: 18,
+    fontSize: 11,
+    color: '#2C3E2B',
+    lineHeight: 16,
   },
 
   // News Card Styles 
@@ -572,7 +823,7 @@ const styles = StyleSheet.create({
   // Floating Chatbot Button
   floatingChatButton: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 96,
     right: 20,
     width: 56,
     height: 56,
@@ -580,13 +831,136 @@ const styles = StyleSheet.create({
     backgroundColor: '#2E6B2E',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
+    elevation: 10,
+    zIndex: 999,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.27,
-    shadowRadius: 4.65,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
   },
   floatingChatEmoji: {
     fontSize: 26,
+  },
+
+  // =======================================================
+  // NEW NOTIFICATIONS OVERLAY MODAL SHEET STYLES
+  // =======================================================
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  notifModalContainerCard: {
+    backgroundColor: '#F7FAF6',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: height * 0.85,
+    minHeight: height * 0.6,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ECEFF1',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  notifTitleHeaderFlex: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A3A1A',
+  },
+  notifLiveBadgeCount: {
+    backgroundColor: '#E53935',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  notifLiveBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  closeModalBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 16,
+  },
+  closeModalText: {
+    fontSize: 12,
+    color: '#555',
+    fontWeight: '700',
+  },
+  notifItemsScrollView: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  notifAlertItemRow: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 6,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+  },
+  notifAlertIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EFF6EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  notifAlertIconEmoji: {
+    fontSize: 18,
+  },
+  notifAlertMetadataColumn: {
+    flex: 1,
+  },
+  notifAlertTitleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A3A1A',
+    flex: 1,
+    paddingRight: 6,
+  },
+  notifAlertTimeSpan: {
+    fontSize: 11,
+    color: '#7A8B75',
+    fontWeight: '500',
+  },
+  notifAlertDescPayload: {
+    fontSize: 12,
+    color: '#4A6741',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  notifParamPillTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  notifParamPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 })
