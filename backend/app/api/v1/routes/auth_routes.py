@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from app.db.mongodb import get_db
 from app.schemas.farmer_schema import (
     SendOTPRequest, VerifyOTPRequest, CompleteProfileRequest,
@@ -187,3 +187,55 @@ async def update_farm(
         created_at=updated["created_at"],
         is_profile_complete=updated.get("is_profile_complete", False),
     )
+
+# @router.patch("/auth/me")
+@router.put("/me")
+async def update_profile(
+    request: Request,
+    db=Depends(get_db),
+    farmer=Depends(get_current_farmer),
+):
+    """Update farmer profile (name, language)."""
+    body = await request.json()
+    update_data = {}
+    if "name" in body and body["name"].strip():
+        update_data["name"] = body["name"].strip()
+    if "language" in body and body["language"] in ["english", "marathi", "hindi"]:
+        update_data["language"] = body["language"]
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    await db.farmers.update_one(
+        {"_id": farmer["_id"]},
+        {"$set": update_data}
+    )
+    updated = await db.farmers.find_one({"_id": farmer["_id"]})
+    updated["id"] = str(updated.pop("_id"))
+    return updated
+
+
+# @router.patch("/auth/me/farm")
+@router.put("/me/farm")
+async def update_farm(
+    request: Request,
+    db=Depends(get_db),
+    farmer=Depends(get_current_farmer),
+):
+    """Update farmer farm details."""
+    body = await request.json()
+    update_data = {}
+    if "crop_type" in body:
+        update_data["farm.crop_type"] = body["crop_type"]
+    if "area_acres" in body and body["area_acres"] is not None:
+        update_data["farm.area_acres"] = float(body["area_acres"])
+    if "soil_type" in body:
+        update_data["farm.soil_type"] = body["soil_type"]
+    if "irrigation_type" in body:
+        update_data["farm.irrigation_type"] = body["irrigation_type"]
+    if update_data:
+        await db.farmers.update_one(
+            {"_id": farmer["_id"]},
+            {"$set": update_data}
+        )
+    updated = await db.farmers.find_one({"_id": farmer["_id"]})
+    updated["id"] = str(updated.pop("_id"))
+    return updated

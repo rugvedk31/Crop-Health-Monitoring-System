@@ -14,6 +14,9 @@ import PredictScreen from '../screens/predict/PredictScreen'
 import ResultScreen from '../screens/predict/ResultScreen'
 import ChatScreen from '../screens/chat/ChatScreen'
 import ProfileScreen from '../screens/profile/ProfileScreen'
+import CommunityScreen from '../screens/community/CommunityScreen'
+import MarketScreen from '../screens/market/MarketScreen'
+
 import 'react-native-gesture-handler'
 
 const Stack = createNativeStackNavigator()
@@ -57,19 +60,19 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Predict"
-        component={PredictScreen}
+        name="Community"
+        component={CommunityScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🔬" focused={focused} />,
-          tabBarLabel: 'Detect',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />,
+          tabBarLabel: 'Community',
         }}
       />
       <Tab.Screen
-        name="Chat"
-        component={ChatScreen}
+        name="Market"
+        component={MarketScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} />,
-          tabBarLabel: 'Chat',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🛒" focused={focused} />,
+          tabBarLabel: 'Market',
         }}
       />
       <Tab.Screen
@@ -107,6 +110,16 @@ function AppStack() {
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: FONTS.bold },
         }}
+      />
+      <Stack.Screen
+        name="Predict"
+        component={PredictScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   )

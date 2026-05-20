@@ -1,14 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, StatusBar, Platform
+  RefreshControl, StatusBar, Platform, Image, ActivityIndicator,
+  Linking
 } from 'react-native'
 import { useAuth } from '../context/AuthContext'
 
 const QUICK_ACTIONS = [
   { icon: '🌿', title: 'Scan Crop', subtitle: 'Detect disease', screen: 'Predict', bg: '#F0FAF0', iconBg: '#C8E6C9' },
-  { icon: '📤', title: 'Upload Image', subtitle: 'From gallery', screen: 'Predict', bg: '#F0F4FF', iconBg: '#BBDEFB' },
-  { icon: '🤖', title: 'Ask Expert', subtitle: 'AI advisor', screen: 'Chat', bg: '#FFFBF0', iconBg: '#FFE082' },
   { icon: '📋', title: 'My Reports', subtitle: 'Past results', screen: 'Profile', bg: '#FFF0F5', iconBg: '#F8BBD0' },
 ]
 
@@ -20,17 +19,143 @@ const INSIGHTS = [
 export default function HomeScreen({ navigation }) {
   const { farmer } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
+  const [news, setNews] = useState([])
+  const [loadingNews, setLoadingNews] = useState(true)
+
+  // --- Real-time Weather States ---
+  const [weatherData, setWeatherData] = useState({
+    temp: '28°C',
+    humidity: '65%',
+    rainChance: '20%',
+    desc: 'Loading location...',
+    icon: '🌤'
+  })
+  const [loadingWeather, setLoadingWeather] = useState(true)
+
+  // 1. Fetch Real-time Weather & Reverse Geocode Location Name
+  const fetchRealTimeWeather = async (lat, lon) => {
+    try {
+      setLoadingWeather(true)
+      
+      // A. Reverse Geocode Coordinates to get the actual Town/City/Village Name (100% Free, No Key)
+      let locationName = "My Farm"
+      try {
+        const geoUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+        const geoResponse = await fetch(geoUrl)
+        const geoData = await geoResponse.json()
+        
+        // Grab village, suburb, town, or city depending on what is available in the rural/urban area
+        locationName = geoData.locality || geoData.city || geoData.principalSubdivision || "My Farm"
+      } catch (geoErr) {
+        console.log("Failed to reverse geocode location name, falling back to default string:", geoErr)
+      }
+
+      // B. Fetch Meteorological Climate Forecast Data
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation&hourly=precipitation_probability&forecast_days=1`
+      const response = await fetch(weatherUrl)
+      const data = await response.json()
+
+      if (data.current) {
+        const currentTemp = Math.round(data.current.temperature_2m)
+        const currentHumidity = data.current.relative_humidity_2m
+        const currentRainChance = data.hourly?.precipitation_probability?.[0] || Math.round(data.current.precipitation * 100)
+        
+        let conditionDesc = 'Clear Sky'
+        let conditionIcon = '☀️'
+        
+        if (data.current.precipitation > 0) {
+          conditionDesc = 'Raining'
+          conditionIcon = '🌧'
+        } else if (currentTemp < 20) {
+          conditionDesc = 'Cool Breezes'
+          conditionIcon = '🍃'
+        } else if (currentHumidity > 70) {
+          conditionDesc = 'Humid / Overcast'
+          conditionIcon = '☁️'
+        } else {
+          conditionDesc = 'Partly Cloudy'
+          conditionIcon = '🌤'
+        }
+
+        setWeatherData({
+          temp: `${currentTemp}°C`,
+          humidity: `${currentHumidity}%`,
+          rainChance: `${currentRainChance}%`,
+          desc: `${conditionDesc} • ${locationName}`, // Injected the real-time location name here dynamically
+          icon: conditionIcon
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching live weather data: ", error)
+      setWeatherData(prev => ({ ...prev, desc: "Weather update failed" }))
+    } finally {
+      setLoadingWeather(false)
+    }
+  }
+
+  // 2. Request Mobile Core Location coordinates
+  const getUserLocationAndLoadDashboard = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          fetchRealTimeWeather(latitude, longitude)
+        },
+        (error) => {
+          console.log("Location permission rejected or timed out, loading defaults: ", error.message)
+          // Default fallbacks to Pune coordinates if location access is denied
+          fetchRealTimeWeather(18.5204, 73.8567) 
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      )
+    } else {
+      fetchRealTimeWeather(18.5204, 73.8567)
+    }
+  }
+
+  // 3. 100% Free RSS-to-JSON News Fetcher
+  const fetchFarmingNews = async () => {
+    try {
+      setLoadingNews(true)
+      const targetRssFeed = "https://www.thehindu.com/sci-tech/agriculture/feeder/default.rss"
+      const response = await fetch(
+        `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetRssFeed)}`
+      )
+      const data = await response.json()
+      
+      if (data.items) {
+        const formattedArticles = data.items.slice(0, 5).map(item => ({
+          title: item.title,
+          urlToImage: item.enclosure?.link || item.thumbnail || null, 
+          source: { name: "The Hindu" },
+          link: item.link 
+        }))
+        setNews(formattedArticles)
+      }
+    } catch (error) {
+      console.error("Error fetching agricultural news: ", error)
+    } finally {
+      setLoadingNews(false)
+    }
+  }
+
+  const handleOpenNewsLink = (url) => {
+    if (!url) return;
+    Linking.openURL(url).catch((err) => 
+      console.error("Failed to open web link: ", err)
+    )
+  }
+
+  useEffect(() => {
+    getUserLocationAndLoadDashboard()
+    fetchFarmingNews()
+  }, [])
 
   const onRefresh = () => {
     setRefreshing(true)
+    getUserLocationAndLoadDashboard() 
+    fetchFarmingNews() 
     setTimeout(() => setRefreshing(false), 1000)
-  }
-
-  const greeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return 'Good Morning'
-    if (hour < 17) return 'Good Afternoon'
-    return 'Good Evening'
   }
 
   return (
@@ -69,29 +194,38 @@ export default function HomeScreen({ navigation }) {
 
         {/* Weather Card */}
         <View style={styles.weatherCard}>
-          <View style={styles.weatherLeft}>
-            <Text style={styles.weatherLabel}>CURRENT WEATHER</Text>
-            <Text style={styles.weatherTemp}>28°C</Text>
-            <Text style={styles.weatherDesc}>Partly Cloudy • Pune</Text>
-            <View style={styles.weatherStats}>
-              <View style={styles.weatherStat}>
-                <Text style={styles.weatherStatIcon}>💧</Text>
-                <Text style={styles.weatherStatLabel}>Humidity</Text>
-                <Text style={styles.weatherStatValue}>65%</Text>
-              </View>
-              <View style={styles.weatherStatDivider} />
-              <View style={styles.weatherStat}>
-                <Text style={styles.weatherStatIcon}>🌧</Text>
-                <Text style={styles.weatherStatLabel}>Rain Chance</Text>
-                <Text style={styles.weatherStatValue}>20%</Text>
-              </View>
+          {loadingWeather ? (
+            <View style={{ flex: 1, height: 120, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator size="small" color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 12, marginTop: 8, opacity: 0.8 }}>Updating live climate feed...</Text>
             </View>
-          </View>
-          <View style={styles.weatherRight}>
-            <View style={styles.weatherIconCircle}>
-              <Text style={styles.weatherIconEmoji}>🌤</Text>
-            </View>
-          </View>
+          ) : (
+            <>
+              <View style={styles.weatherLeft}>
+                <Text style={styles.weatherLabel}>CURRENT WEATHER</Text>
+                <Text style={styles.weatherTemp}>{weatherData.temp}</Text>
+                <Text style={styles.weatherDesc}>{weatherData.desc}</Text>
+                <View style={styles.weatherStats}>
+                  <View style={styles.weatherStat}>
+                    <Text style={styles.weatherStatIcon}>💧</Text>
+                    <Text style={styles.weatherStatLabel}>Humidity</Text>
+                    <Text style={styles.weatherStatValue}>{weatherData.humidity}</Text>
+                  </View>
+                  <View style={styles.weatherStatDivider} />
+                  <View style={styles.weatherStat}>
+                    <Text style={styles.weatherStatIcon}>🌧</Text>
+                    <Text style={styles.weatherStatLabel}>Rain Chance</Text>
+                    <Text style={styles.weatherStatValue}>{weatherData.rainChance}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.weatherRight}>
+                <View style={styles.weatherIconCircle}>
+                  <Text style={styles.weatherIconEmoji}>{weatherData.icon}</Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Quick Actions */}
@@ -113,17 +247,17 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {/* Daily Insights */}
-        <View style={styles.insightHeader}>
+        <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Daily Insights</Text>
           <TouchableOpacity>
-            <Text style={styles.seeAll}>SEE ALL</Text>
+            <Text style={styles.seeAllText}>SEE ALL</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.insightScroll}
+          contentContainerStyle={styles.horizontalScrollGap}
         >
           {INSIGHTS.map((insight, i) => (
             <View key={i} style={styles.insightCard}>
@@ -136,7 +270,50 @@ export default function HomeScreen({ navigation }) {
           ))}
         </ScrollView>
 
+        {/* Real-time Farming News */}
+        <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+          <Text style={styles.sectionTitle}>Farming News</Text>
+          <Text style={styles.liveBadge}>● LIVE</Text>
+        </View>
+
+        {loadingNews ? (
+          <ActivityIndicator size="small" color="#2E6B2E" style={{ marginVertical: 20 }} />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalScrollGap}
+          >
+            {news.map((item, i) => (
+              <TouchableOpacity 
+                key={i} 
+                style={styles.newsCard}
+                onPress={() => handleOpenNewsLink(item.link)}
+                activeOpacity={0.9}
+              >
+                <Image 
+                  source={{ uri: item.urlToImage || 'https://via.placeholder.com/220x110.png?text=Agro+News' }} 
+                  style={styles.newsImage} 
+                />
+                <View style={styles.newsContent}>
+                  <Text style={styles.newsSource}>{item.source?.name || 'Agriculture Update'}</Text>
+                  <Text numberOfLines={2} style={styles.newsTitle}>{item.title}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
       </ScrollView>
+
+      {/* Floating Meta AI-Style Chatbot Button */}
+      <TouchableOpacity
+        style={styles.floatingChatButton}
+        onPress={() => navigation.navigate('Chat')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.floatingChatEmoji}>🤖</Text>
+      </TouchableOpacity>
     </View>
   )
 }
@@ -149,7 +326,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: {
     paddingHorizontal: 18,
-    paddingBottom: 24,
+    paddingBottom: 100, 
   },
 
   // Header
@@ -200,7 +377,7 @@ const styles = StyleSheet.create({
   },
   notifIcon: { fontSize: 18 },
 
-  // Weather
+  // Weather Card Container
   weatherCard: {
     backgroundColor: '#2E6B2E',
     borderRadius: 20,
@@ -209,6 +386,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 24,
+    minHeight: 140,
   },
   weatherLeft: { flex: 1 },
   weatherLabel: {
@@ -270,7 +448,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#1A3A1A',
-    marginBottom: 12,
   },
 
   // Quick Actions
@@ -278,6 +455,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    marginVertical: 12,
     marginBottom: 24,
   },
   actionCard: {
@@ -302,33 +480,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Insights
-  insightHeader: {
+  // Shared Horizontal Header Layout
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  seeAll: {
+  seeAllText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#2E6B2E',
     letterSpacing: 0.5,
   },
-  insightScroll: {
+  horizontalScrollGap: {
     gap: 12,
     paddingRight: 4,
   },
+
+  // Insights Card Styles
   insightCard: {
     width: 200,
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 2,
   },
   insightIconCircle: {
     width: 36,
@@ -348,5 +528,65 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4A6741',
     lineHeight: 18,
+  },
+
+  // News Card Styles 
+  newsCard: {
+    width: 220,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  newsImage: {
+    width: '100%',
+    height: 110,
+    backgroundColor: '#E8F5E9',
+  },
+  newsContent: {
+    padding: 12,
+  },
+  newsSource: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2E6B2E',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  newsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1A3A1A',
+    lineHeight: 16,
+  },
+  liveBadge: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#E53935',
+  },
+
+  // Floating Chatbot Button
+  floatingChatButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2E6B2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+  },
+  floatingChatEmoji: {
+    fontSize: 26,
   },
 })

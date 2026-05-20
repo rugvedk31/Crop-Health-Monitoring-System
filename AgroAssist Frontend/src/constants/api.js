@@ -1,4 +1,4 @@
-const LOCAL_IP = '192.168.1.9'
+const LOCAL_IP = '192.168.0.105'
 
 export const BASE_URL = `http://${LOCAL_IP}:8000`
 
